@@ -1,0 +1,102 @@
+
+.custom_page {
+  font-size: 9pt;
+
+  .container-fluid & { // center the invoice in portal preview
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  &.header {
+
+    img, h3 {
+      padding: 1rem 0 0 0;
+      margin: 0;
+    }
+
+    h3 {
+      color: $o-default-report-primary-color;
+      //padding-top: 3rem;
+    }
+
+    img {
+      float: right;
+    }
+  }
+
+  &.invoice_note {
+    //margin-top: 1rem;
+
+    div {
+      .company_address {
+        padding-bottom: 1rem;
+      }
+
+      .address, .information_block, .shipping_address, .invoice_address {
+        margin: 0;
+      }
+
+      .address {
+        height: 35mm;
+      }
+
+      address + div { // hide hardcoded VAT from other layouts
+        display: none;
+      }
+
+      .address, .shipping_address {
+        .company_invoice_line {
+          margin-top: 0;
+        }
+
+        > span {
+          color: $o-default-report-secondary-color;
+        }
+      }
+
+      .information_block {
+        line-height: 1.5;
+      }
+
+      .information_block, .invoice_address {
+        margin-left: 20mm;
+      }
+    }
+
+    h2, [name=payment_communication], [name=payment_term], [name=comment], [name=note], [name=incoterm] {
+      //margin-right: 10mm;
+      color: $o-default-report-primary-color;
+    }
+
+    > .pt-5 { // hide hardcoded address from base.template.layout
+      display: none;
+    }
+
+    .page {
+      > h2, h1, #informations {
+        display: none;
+      }
+
+      [name=invoice_line_table], [name=stock_move_table], .o_main_table {
+        th {
+          color: $o-default-report-secondary-color;
+        }
+      }
+
+      [name=invoice_line_table], [name=stock_move_table] {
+        margin-top: 8.46mm;
+      }
+
+      tr {
+        td .custom_td {
+          width: 12px;
+        }
+      }
+    }
+  }
+}
+
+//.classic_page_pdf {
+//  margin-left: -1rem;
+//  font-size: 8pt;
+//}
