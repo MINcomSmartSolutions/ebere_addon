@@ -1,7 +1,7 @@
 {
-    'name': "Base Document",
+    'name': "EBERE addon",
     'summary': 'This module adds additional documents for external reports and manipulates email templates',
-    'author': 'ycs',
+    'author': 'MINcom Smart Solutions GmbH',
     'category': 'Base',
     'version': '17.0.1.5',
     'depends': [
@@ -17,9 +17,8 @@
         'views/auth_signup_templates_email_override.xml',
         'views/invoice_template.xml',
         'data/report_layout.xml',
-        'views/webclient_templates_override.xml',
     ],
     'installable': True,
-    'application': False,
     'auto_install': True,
+    'application': False,
 }
