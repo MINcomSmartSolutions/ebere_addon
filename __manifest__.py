@@ -11,10 +11,11 @@
         'auth_signup',
         'account',
         'base',
+        'product',
     ],
     'data': [
+        'data/products.xml',
         'views/report_templates.xml',
-        'views/auth_signup_templates_email_override.xml',
         'views/invoice_template.xml',
         'data/report_layout.xml',
     ],

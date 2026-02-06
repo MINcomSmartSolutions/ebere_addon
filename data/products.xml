@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Arbeitspreis - Fixed Price Product -->
+        <record id="product_fixed_price" model="product.product">
+            <field name="name">Arbeitspreis</field>
+            <field name="default_code">fixed_price</field>
+            <field name="type">service</field>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="list_price">0.0</field>
+            <field name="description_sale">Arbeitspreis für Stromverbrauch</field>
+        </record>
+
+        <!-- Grundpreis Liefervertrag -->
+        <record id="product_grundpreis_liefer_vertrag" model="product.product">
+            <field name="name">Grundpreis Liefervertrag</field>
+            <field name="default_code">grundpreis_liefer_vertrag</field>
+            <field name="type">service</field>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="list_price">0.0</field>
+            <field name="description_sale">Monatlicher Grundpreis für den Liefervertrag</field>
+        </record>
+
+        <!-- Korrektur Arbeitspreis - Savings through plant consumption -->
+        <record id="product_savings_plant_cons" model="product.product">
+            <field name="name">Ersparnisse durch Eigenverbrauch</field>
+            <field name="default_code">savings_plant_cons</field>
+            <field name="type">service</field>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="list_price">0.0</field>
+            <field name="description_sale">Preiskorrektur für virtuellen Eigenverbrauch aus der Anlage</field>
+        </record>
+
+        <!-- Preiskorrektur Strombezug - Savings through excess consumption -->
+        <record id="product_savings_excess_cons" model="product.product">
+            <field name="name">Preiskorrektur für Strombezug</field>
+            <field name="default_code">savings_excess_cons</field>
+            <field name="type">service</field>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="list_price">0.0</field>
+            <field name="description_sale">Preiskorrektur für überschüssigen Strombezug</field>
+        </record>
+
+        <!-- Direktvermarktung - Direct Marketing Revenue -->
+        <record id="product_direktvermarktung" model="product.product">
+            <field name="name">Vermarktungseinnahmen</field>
+            <field name="default_code">direktvermarktung</field>
+            <field name="type">service</field>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="list_price">0.0</field>
+            <field name="description_sale">Einnahmen aus Direktvermarktung</field>
+        </record>
+
+        <!-- Grundpreis Energierendite Vertrag -->
+        <record id="product_grundpreis_energie_vertrag" model="product.product">
+            <field name="name">Grundpreis Energierendite-Vertrag</field>
+            <field name="default_code">grundpreis_energie_vertrag</field>
+            <field name="type">service</field>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="sale_ok">True</field>
+            <field name="purchase_ok">False</field>
+            <field name="list_price">0.0</field>
+            <field name="description_sale">Monatlicher Grundpreis für den Energierendite-Vertrag</field>
+        </record>
+    </data>
+</odoo>
+
