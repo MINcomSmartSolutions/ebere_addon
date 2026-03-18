@@ -6,9 +6,11 @@ from odoo import http
 from odoo.http import request, Controller, route
 from odoo import SUPERUSER_ID
 
+from ..services.company_service import get_or_create_company
+
 _logger = logging.getLogger(__name__)
 
-# Docker internal / loopback network prefixes
+# Docker internal / loopback network prefixes. Fine for quick filtering / non-critical use, but not a real IP validation.
 _INTERNAL_PREFIXES = ('172.', '10.', '192.168.', '127.', '::1')
 
 
@@ -259,6 +261,10 @@ class BillingAPI(Controller):
             'tax_country_id': 57,
             'invoice_line_ids': line_cmds,
         }
+
+        company = get_or_create_company(env)
+        if company:
+            invoice_vals['company_id'] = company.id
 
         invoice = env['account.move'].sudo().create(invoice_vals)
         _logger.info('Created draft invoice id=%s partner=%s', invoice.id, partner_id)
