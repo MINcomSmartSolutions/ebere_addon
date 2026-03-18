@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data noupdate="1">
+
         <!-- Arbeitspreis - Fixed Price Product -->
         <record id="product_fixed_price" model="product.product">
             <field name="name">Arbeitspreis</field>
             <field name="default_code">fixed_price</field>
-            <field name="type">service</field>
+            <field name="type">consu</field>
             <field name="categ_id" ref="product.product_category_all"/>
             <field name="sale_ok">True</field>
             <field name="purchase_ok">False</field>
@@ -21,7 +22,7 @@
             <field name="categ_id" ref="product.product_category_all"/>
             <field name="sale_ok">True</field>
             <field name="purchase_ok">False</field>
-            <field name="list_price">0.0</field>
+            <field name="list_price">10.0</field>
             <field name="description_sale">Monatlicher Grundpreis für den Liefervertrag</field>
         </record>
 
@@ -29,7 +30,7 @@
         <record id="product_savings_plant_cons" model="product.product">
             <field name="name">Ersparnisse durch Eigenverbrauch</field>
             <field name="default_code">savings_plant_cons</field>
-            <field name="type">service</field>
+            <field name="type">consu</field>
             <field name="categ_id" ref="product.product_category_all"/>
             <field name="sale_ok">True</field>
             <field name="purchase_ok">False</field>
@@ -39,39 +40,51 @@
 
         <!-- Preiskorrektur Strombezug - Savings through excess consumption -->
         <record id="product_savings_excess_cons" model="product.product">
-            <field name="name">Preiskorrektur für Strombezug</field>
-            <field name="default_code">savings_excess_cons</field>
-            <field name="type">service</field>
-            <field name="categ_id" ref="product.product_category_all"/>
-            <field name="sale_ok">True</field>
-            <field name="purchase_ok">False</field>
-            <field name="list_price">0.0</field>
-            <field name="description_sale">Preiskorrektur für überschüssigen Strombezug</field>
-        </record>
+                <field name="name">Preiskorrektur für Strombezug</field>
+                <field name="default_code">savings_excess_cons</field>
+                <field name="type">service</field>
+                <field name="categ_id" ref="product.product_category_all"/>
+                <field name="sale_ok">True</field>
+                <field name="purchase_ok">False</field>
+                <field name="list_price">0.0</field>
+                <field name="description_sale">Preiskorrektur für überschüssigen Strombezug</field>
+            </record>
 
-        <!-- Direktvermarktung - Direct Marketing Revenue -->
-        <record id="product_direktvermarktung" model="product.product">
-            <field name="name">Vermarktungseinnahmen</field>
-            <field name="default_code">direktvermarktung</field>
-            <field name="type">service</field>
-            <field name="categ_id" ref="product.product_category_all"/>
-            <field name="sale_ok">True</field>
-            <field name="purchase_ok">False</field>
-            <field name="list_price">0.0</field>
-            <field name="description_sale">Einnahmen aus Direktvermarktung</field>
-        </record>
+            <!-- Direktvermarktung - Direct Marketing Revenue -->
+            <record id="product_direktvermarktung" model="product.product">
+                <field name="name">Vermarktungseinnahmen</field>
+                <field name="default_code">direktvermarktung</field>
+                <field name="type">service</field>
+                <field name="categ_id" ref="product.product_category_all"/>
+                <field name="sale_ok">True</field>
+                <field name="purchase_ok">False</field>
+                <field name="list_price">0.0</field>
+                <field name="description_sale">Einnahmen aus Direktvermarktung</field>
+            </record>
 
-        <!-- Grundpreis Energierendite Vertrag -->
-        <record id="product_grundpreis_energie_vertrag" model="product.product">
-            <field name="name">Grundpreis Energierendite-Vertrag</field>
-            <field name="default_code">grundpreis_energie_vertrag</field>
-            <field name="type">service</field>
-            <field name="categ_id" ref="product.product_category_all"/>
-            <field name="sale_ok">True</field>
-            <field name="purchase_ok">False</field>
-            <field name="list_price">0.0</field>
-            <field name="description_sale">Monatlicher Grundpreis für den Energierendite-Vertrag</field>
-        </record>
-    </data>
-</odoo>
+            <!-- Anlagen Bonus -->
+            <record id="product_anlagen_bonus" model="product.product">
+                <field name="name">Anlagenbonus</field>
+                <field name="default_code">anlagen_bonus</field>
+                <field name="type">service</field>
+                <field name="categ_id" ref="product.product_category_all"/>
+                <field name="sale_ok">True</field>
+                <field name="purchase_ok">False</field>
+                <field name="list_price">0.0</field>
+                <field name="description_sale">Anlagenbonus</field>
+            </record>
 
+            <!-- Grundpreis Energierendite Vertrag -->
+            <record id="product_grundpreis_energie_vertrag" model="product.product">
+                <field name="name">Grundpreis Energierendite-Vertrag</field>
+                <field name="default_code">grundpreis_energie_vertrag</field>
+                <field name="type">service</field>
+                <field name="categ_id" ref="product.product_category_all"/>
+                <field name="sale_ok">True</field>
+                <field name="purchase_ok">False</field>
+                <field name="list_price">20.0</field>
+                <field name="description_sale">Monatlicher Grundpreis für den Energierendite-Vertrag</field>
+            </record>
+
+        </data>
+    </odoo>

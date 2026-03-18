@@ -5,12 +5,12 @@
     'category': 'Base',
     'version': '17.0.1.5',
     'depends': [
+        'account',
+        'base',
+        'l10n_de',
         'l10n_din5008',
         'mail',
         'web',
-        'auth_signup',
-        'account',
-        'base',
         'product',
     ],
     'data': [
