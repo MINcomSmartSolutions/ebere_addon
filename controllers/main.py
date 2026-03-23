@@ -262,6 +262,14 @@ class BillingAPI(Controller):
             'invoice_line_ids': line_cmds,
         }
 
+        # Optional customer / contract identifiers
+        if payload.get('customer_number'):
+            invoice_vals['customer_number'] = str(payload['customer_number'])
+        if payload.get('contract_number'):
+            invoice_vals['contract_number'] = str(payload['contract_number'])
+        if payload.get('meter_point'):
+            invoice_vals['meter_point'] = str(payload['meter_point'])
+
         company = get_or_create_company(env)
         if company:
             invoice_vals['company_id'] = company.id

@@ -17,8 +17,12 @@
         'data/products.xml',
         'views/report_templates.xml',
         'views/invoice_template.xml',
-        'data/report_layout.xml',
     ],
+    'assets': {
+        'web.report_assets_common': [
+            'ebere_addon/static/src/scss/layout_custom.scss',
+        ],
+    },
     'installable': True,
     'auto_install': True,
     'application': False,

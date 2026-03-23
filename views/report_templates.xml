@@ -9,18 +9,18 @@
         <!-- Layout: Inherit DIN5008 as a selectable (primary) template.  -->
         <!-- Only customization: filter information_block rows 2, 3, 4    -->
         <!-- ============================================================ -->
-        <template id="external_layout_custom"
-                  inherit_id="l10n_din5008.external_layout_din5008"
-                  primary="True">
-            <xpath expr="//div[hasclass('information_block')]//t[@t-foreach='template_data']" position="replace">
-                <t t-foreach="template_data" t-as="row">
-                    <tr t-if="row_index not in (2, 3, 4)">
-                        <td><t t-out="row[0]"/></td>
-                        <td><t t-out="row[1]"/></td>
-                    </tr>
-                </t>
-            </xpath>
-        </template>
+<!--        <template id="external_layout_custom"-->
+<!--                  inherit_id="l10n_din5008.external_layout_din5008"-->
+<!--                  primary="True">-->
+<!--            <xpath expr="//div[hasclass('information_block')]//t[@t-foreach='template_data']" position="replace">-->
+<!--                <t t-foreach="template_data" t-as="row">-->
+<!--                    <tr t-if="row_index not in (2, 3, 4)">-->
+<!--                        <td><t t-out="row[0]"/></td>-->
+<!--                        <td><t t-out="row[1]"/></td>-->
+<!--                    </tr>-->
+<!--                </t>-->
+<!--            </xpath>-->
+<!--        </template>-->
 
         <!-- ============================================================ -->
         <!-- Invoice document: Inherit account.report_invoice_document    -->

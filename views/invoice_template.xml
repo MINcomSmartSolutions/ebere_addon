@@ -13,6 +13,15 @@
 					<field name="billing_period_end"
 					       string="Billing Period End"
 					       readonly="state != 'draft'"/>
+					<field name="customer_number"
+					       string="Kundennummer"
+					       readonly="state != 'draft'"/>
+					<field name="contract_number"
+					       string="Vertragsnummer"
+					       readonly="state != 'draft'"/>
+					<field name="meter_point"
+					       string="Zählpunkt Verbraucher"
+					       readonly="state != 'draft'"/>
 				</xpath>
 			</field>
 		</record>
