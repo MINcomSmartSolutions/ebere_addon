@@ -288,6 +288,38 @@ class BillingAPI(Controller):
         }
 
     @staticmethod
+    def _resolve_tax(env, amount, price_include, cache):
+        """Find (or create) an ``account.tax`` by amount and price_include flag.
+
+        Returns the tax recordset.  Results are cached by (amount, price_include)
+        for the duration of the request.
+        """
+        key = (amount, price_include)
+        if key in cache:
+            return cache[key]
+
+        Tax = env['account.tax'].sudo()
+        tax = Tax.search([
+            ('amount', '=', amount),
+            ('price_include', '=', price_include),
+            ('type_tax_use', '=', 'sale'),
+        ], limit=1)
+
+        if not tax:
+            incl_label = 'inkl.' if price_include else 'exkl.'
+            tax = Tax.create({
+                'name': f'{amount}% USt ({incl_label})',
+                'amount': amount,
+                'amount_type': 'percent',
+                'type_tax_use': 'sale',
+                'price_include': price_include,
+            })
+            _logger.info('Created tax id=%s name=%s', tax.id, tax.name)
+
+        cache[key] = tax
+        return tax
+
+    @staticmethod
     def _build_line_commands(env, lines):
         """Translate JSON line items into Odoo ``(0, 0, vals)`` commands.
 
@@ -295,9 +327,17 @@ class BillingAPI(Controller):
 
         * ``{"type": "section", "name": "…"}`` → section header
         * ``{"product_code": "…", "quantity": …, "price_unit": …}`` → product line
+
+        Optional per-line fields:
+
+        * ``"tax_amount": 19, "tax_included": true`` → override the default tax.
+          ``tax_included: true`` means ``price_unit`` is brutto;
+          ``tax_included: false`` (or omitted) means netto.
+          If no matching tax exists it will be created automatically.
         """
         Product = env['product.product'].sudo()
-        cache = {}
+        product_cache = {}
+        tax_cache = {}
         commands = []
 
         for item in lines:
@@ -312,17 +352,23 @@ class BillingAPI(Controller):
             if not code:
                 raise ValueError('Invoice line missing product_code')
 
-            if code not in cache:
+            if code not in product_cache:
                 product = Product.search([('default_code', '=', code)], limit=1)
                 if not product:
                     raise ValueError(f"Product with code '{code}' not found")
-                cache[code] = product.id
+                product_cache[code] = product.id
 
-            vals = {'product_id': cache[code]}
+            vals = {'product_id': product_cache[code]}
             if 'quantity' in item:
                 vals['quantity'] = item['quantity']
             if 'price_unit' in item:
                 vals['price_unit'] = item['price_unit']
+
+            # Override default tax when the backend specifies amount + included flag
+            if 'tax_amount' in item:
+                price_include = bool(item.get('tax_included', False))
+                tax = BillingAPI._resolve_tax(env, item['tax_amount'], price_include, tax_cache)
+                vals['tax_ids'] = [(6, 0, [tax.id])]
 
             commands.append((0, 0, vals))
 
