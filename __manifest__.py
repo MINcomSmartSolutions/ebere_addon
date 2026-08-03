@@ -15,6 +15,7 @@
     ],
     'data': [
         'data/products.xml',
+        'data/mail_template_password.xml',
         'views/report_templates.xml',
         'views/invoice_template.xml',
     ],

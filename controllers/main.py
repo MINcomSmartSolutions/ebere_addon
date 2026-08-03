@@ -2,10 +2,8 @@ import base64
 import json
 import logging
 
-from odoo import http
-from odoo.http import request, Controller, route
 from odoo import SUPERUSER_ID
-
+from odoo.http import request, Controller, route
 from ..services.company_service import get_or_create_company
 
 _logger = logging.getLogger(__name__)
@@ -41,14 +39,14 @@ class BillingAPI(Controller):
         Returns ``True`` on success or ``False`` on failure.
         """
         import os
-        
+
         expected_user = os.environ.get('ODOO_API_USER', '')
         expected_password = os.environ.get('ODOO_API_PASSWORD', '')
-        
+
         if not expected_user or not expected_password:
             _logger.error('ODOO_API_USER or ODOO_API_PASSWORD not configured')
             return False
-        
+
         header = request.httprequest.headers.get('Authorization', '')
         if not header.startswith('Basic '):
             return False
@@ -104,9 +102,9 @@ class BillingAPI(Controller):
     @route('/api/v1/billing/health', type='http', auth='public', methods=['GET'], csrf=False)
     def health_check(self):
         """Simple health check endpoint"""
-        return request.make_json_response({'status': 'ok', 'service': 'billing_api'})
+        return request.make_json_response({'ok'})
 
-    @route('/api/v1/billing/create_invoice', type='http', auth='none', methods=['POST'], csrf=False)
+    @route('/api/v1/internal/billing/create_invoice', type='http', auth='none', methods=['POST'], csrf=False)
     def create_invoice(self):
         """Create and confirm an invoice (or credit note for tariff 4).
 
@@ -151,7 +149,7 @@ class BillingAPI(Controller):
             _logger.exception('create_invoice failed')
             return self._error(str(exc), 500)
 
-    @route('/api/v1/billing/create_attachment', type='http', auth='none', methods=['POST'], csrf=False)
+    @route('/api/v1/internal/billing/create_attachment', type='http', auth='none', methods=['POST'], csrf=False)
     def create_attachment(self):
         """Attach a base-64 encoded file to an existing invoice.
 
@@ -191,14 +189,9 @@ class BillingAPI(Controller):
             _logger.exception('create_attachment failed')
             return self._error(str(exc), 500)
 
-    @route('/api/v1/billing/read_partner', type='http', auth='none', methods=['POST'], csrf=False)
+    @route('/api/v1/internal/partner/read', type='http', auth='none', methods=['POST'], csrf=False)
     def read_partner(self):
-        """Return basic partner details (or 404 if missing).
-
-        Expected JSON body::
-
-            {"partner_id": 42}
-        """
+        """Return basic partner details (or 404 if missing)."""
         _, err = self._secured()
         if err:
             return err
@@ -226,6 +219,126 @@ class BillingAPI(Controller):
             })
         except Exception as exc:
             _logger.exception('read_partner failed')
+            return self._error(str(exc), 500)
+
+    @route('/api/v1/internal/partner/create', type='http', auth='none', methods=['POST'], csrf=False)
+    def create_partner(self):
+        _, err = self._secured()
+        if err:
+            return err
+
+        try:
+            payload = self._parse_body()
+        except Exception as exc:
+            return self._error(f'Invalid JSON: {exc}')
+
+        try:
+            email = payload.get('email')
+            name = payload.get('name')
+            surname = payload.get('surname')
+            street = payload.get('street')
+            city = payload.get('city')
+            state = payload.get('region')
+            zip = payload.get('zip')
+
+            if not email or not name or not surname:
+                return self._error('Missing fields: email, name, surname')
+
+            # Check if partner with this email already exists
+            existing_partner = request.env['res.partner'].sudo().search([('email', '=', email)], limit=1)
+
+            # Check if user with this email/login already exists. Even though we do not create a user for this partner.
+            existing_user = request.env['res.users'].sudo().search([('login', '=', email)], limit=1)
+
+            if existing_partner:
+                return self._error(f'Partner with email {email} already exists', 409)
+
+            if existing_user:
+                return self._error(f'User with email {email} already exists', 409)
+
+            # Create the partner
+            germany = request.env['res.country'].sudo().search([('code', '=', 'DE')], limit=1)
+            state_id = request.env['res.country.state'].sudo().search(
+                [('code', '=', state), ('country_id', '=', germany.id)], limit=1).id if state else None #FIXME: Make it fuzzy
+            partner_values = {
+                'name': f'{name} {surname}',
+                'street': street,
+                'zip': zip,
+                'city': city,
+                'state_id': state_id,
+                'email': email,
+                'country_id': germany.id,
+                'lang': 'de_DE',
+                'tz': 'Europe/Berlin',
+            }
+            partner = request.env['res.partner'].sudo().create(
+                {k: v for k, v in partner_values.items() if v}
+            )
+
+            return request.make_json_response({
+                'success': True,
+                'partner_id': partner.id,
+            }, status=201)
+
+        except Exception as exc:
+            _logger.error(f"User creation error: {str(exc)}", exc_info=True, stack_info=True)
+            return request.make_json_response({'error': str(exc)}, status=500)
+
+    @route('/api/v1/internal/partner/send_password', type='http', auth='none', methods=['POST'], csrf=False)
+    def send_partner_password(self):
+        """Email login credentials for the frontend app to a partner.
+
+        Intended to be triggered by another internal service.  The partners
+        are Odoo contacts only (no Odoo login) — the password is used by the
+        external frontend, not by Odoo.
+
+        Expected JSON body::
+
+            {
+                "partner_id": 42,
+                "password": "the-password"
+            }
+
+        The partner's email and the password are then sent to the partner's
+        email address using the ``ebere_addon.mail_template_partner_password``
+        template.
+        """
+        _, err = self._secured()
+        if err:
+            return err
+
+        try:
+            payload = self._parse_body()
+        except Exception as exc:
+            return self._error(f'Invalid JSON: {exc}')
+
+        partner_id = payload.get('partner_id')
+        if not partner_id:
+            return self._error('Missing field: partner_id')
+        try:
+            partner_id = int(partner_id)
+        except ValueError:
+            return self._error('Invalid field: partner_id')
+
+
+        password = payload.get('password')
+        if not password or password.strip() == '':
+            return self._error('Missing field: password')
+        if password.strip() != password:
+            return self._error('Invalid field: password')
+        if len(password.strip()) < 5 or len(password.strip()) > 64:
+            return self._error('Password length must be between 5 and 64 characters')
+
+        try:
+            env = request.env(user=SUPERUSER_ID)
+            result = self._do_send_partner_password(
+                env, int(partner_id), password,
+            )
+            return self._ok(result)
+        except ValueError as exc:
+            return self._error(str(exc), 404)
+        except Exception as exc:
+            _logger.exception('send_partner_password failed')
             return self._error(str(exc), 500)
 
     # ------------------------------------------------------------------
@@ -285,6 +398,33 @@ class BillingAPI(Controller):
             'display_name': invoice.display_name,
             'amount_total': invoice.amount_total,
             'state': invoice.state,
+        }
+
+    # ------------------------------------------------------------------
+    # Partner password / app access
+    # ------------------------------------------------------------------
+
+    def _do_send_partner_password(self, env, partner_id, password):
+        """Email the frontend-app credentials to the partner.
+
+        Partners are Odoo contacts only; no ``res.users`` record is created.
+        """
+        partner = env['res.partner'].sudo().browse(partner_id).exists()
+        if not partner:
+            raise ValueError(f'Partner with id {partner_id} not found')
+        if not partner.email:
+            raise ValueError(f'Partner {partner_id} has no email address')
+
+        if not password or not password.strip():
+            raise ValueError('Password cannot be empty')
+
+        template = env.ref('ebere_addon.mail_template_partner_password')
+        template.with_context(password=password).send_mail(partner.id, force_send=True)
+        _logger.info('Sent credentials email to partner=%s (%s)', partner.id, partner.email)
+
+        return {
+            'partner_id': partner.id,
+            'email': partner.email,
         }
 
     @staticmethod
