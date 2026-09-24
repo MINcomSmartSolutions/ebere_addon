@@ -1,5 +1,5 @@
 {
-    'name': "EBERE addon",
+    'name': "EBeRE addon",
     'summary': 'This module adds additional documents for external reports and manipulates email templates',
     'author': 'MINcom Smart Solutions GmbH',
     'category': 'Base',
