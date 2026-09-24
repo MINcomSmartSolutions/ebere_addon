@@ -2,8 +2,9 @@
     'name': "EBeRE addon",
     'summary': 'This module adds additional documents for external reports and manipulates email templates',
     'author': 'MINcom Smart Solutions GmbH',
+    'website': 'https://min2sol.com',
     'category': 'Base',
-    'version': '17.0.1.5',
+    'version': '17.0.1.7',
     'depends': [
         'account',
         'base',
