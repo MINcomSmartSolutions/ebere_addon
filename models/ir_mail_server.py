@@ -1,6 +1,7 @@
 import re
 
 from odoo import models
+from odoo.addons.base.models.ir_mail_server import MailDeliveryException
 from odoo.tools import file_open
 
 # Matches both the relative src in templates and the absolute one produced by _replace_local_links.
@@ -29,3 +30,15 @@ class IrMailServer(models.Model):
             with file_open(f'ebere_addon/static/src/img/{name}', 'rb') as image:
                 html_part.add_related(image.read(), 'image', 'png', cid=f'<{name}>', filename=name)
         return message
+
+    def send_email(self, message, *args, **kwargs):
+        """Refuse every outgoing email unless the ``ebere_mail_allowed`` context key is set.
+
+        Every SMTP send goes through here, so this also stops Odoo's own system emails. ``mail.mail._send``
+        turns the exception into a failed mail (Technical > Emails).
+        The key is set per mail by ``mail.mail._send`` (ALLOWED_MODELS) or by a caller that sends immediately
+        (``force_send=True``); a queued mail loses the caller's context and gets blocked.
+        """
+        if not self.env.context.get('ebere_mail_allowed'):
+            raise MailDeliveryException('Blocked by ebere_addon: email not on the allowlist')
+        return super().send_email(message, *args, **kwargs)

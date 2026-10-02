@@ -419,7 +419,7 @@ class BillingAPI(Controller):
             raise ValueError('Password cannot be empty')
 
         template = env.ref('ebere_addon.mail_template_partner_password')
-        template.with_context(password=password).send_mail(partner.id, force_send=True)
+        template.with_context(password=password, ebere_mail_allowed=True).send_mail(partner.id, force_send=True)
         _logger.info('Sent credentials email to partner=%s (%s)', partner.id, partner.email)
 
         return {
