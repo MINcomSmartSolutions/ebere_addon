@@ -1,4 +1,5 @@
 import logging
+import os
 
 _logger = logging.getLogger(__name__)
 
@@ -96,6 +97,16 @@ def ebere_init_parameters(env):
         _logger.info("Set report.url to http://localhost:8069")
     except Exception as e:
         _logger.warning("Failed to set report.url: %s", e)
+
+    # Frozen so Odoo doesn't overwrite it
+    base_url = os.environ.get('ODOO_BASE_URL', '').strip().rstrip('/')
+    if base_url:
+        try:
+            env['ir.config_parameter'].sudo().set_param('web.base.url', base_url)
+            env['ir.config_parameter'].sudo().set_param('web.base.url.freeze', 'True')
+            _logger.info("Set and froze web.base.url to %s", base_url)
+        except Exception as e:
+            _logger.warning("Failed to set web.base.url: %s", e)
 
     # Check if de_DE language is enabled
     try:
