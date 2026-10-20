@@ -291,6 +291,41 @@ class BillingAPI(Controller):
             _logger.error(f"User creation error: {str(exc)}", exc_info=True, stack_info=True)
             return request.make_json_response({'error': str(exc)}, status=500)
 
+    @route('/api/v1/internal/partner/update', type='http', auth='none', methods=['POST'], csrf=False)
+    def update_partner(self):
+        """Overwrite a partner's name and address with the backend's values; absent keys stay unchanged."""
+        _, err = self._secured()
+        if err:
+            return err
+
+        try:
+            payload = self._parse_body()
+        except Exception as exc:
+            return self._error(f'Invalid JSON: {exc}')
+
+        try:
+            partner_id = payload.get('partner_id')
+            if not partner_id:
+                return self._error('Missing field: partner_id')
+            partner = request.env['res.partner'].sudo().browse(int(partner_id)).exists()
+            if not partner:
+                return self._error(f'Partner {partner_id} not found', 404)
+
+            values = {}
+            if 'name' in payload or 'surname' in payload:
+                values['name'] = f"{payload.get('name') or ''} {payload.get('surname') or ''}".strip()
+            for key in ('street', 'city', 'zip'):
+                if key in payload:
+                    values[key] = payload[key] or False
+            if 'region' in payload:
+                values['state_id'] = self._german_state_id(payload['region'])
+            partner.write(values)
+            return self._ok({'partner_id': partner.id})
+
+        except Exception as exc:
+            _logger.error(f"Partner update error: {str(exc)}", exc_info=True, stack_info=True)
+            return request.make_json_response({'success': False, 'error': str(exc)}, status=500)
+
     @route('/api/v1/internal/partner/send_password', type='http', auth='none', methods=['POST'], csrf=False)
     def send_partner_password(self):
         """Email login credentials for the frontend app to a partner.
