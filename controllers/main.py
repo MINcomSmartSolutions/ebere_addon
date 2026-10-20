@@ -397,6 +397,11 @@ class BillingAPI(Controller):
         invoice = env['account.move'].sudo().create(invoice_vals)
         _logger.info('Created draft invoice id=%s partner=%s', invoice.id, partner_id)
 
+        # Tarif 5 is a delta invoice of credits that usually nets negative, which Odoo
+        # refuses to post; the native switch turns it into a credit note.
+        if tariff_version == 5 and invoice.amount_total < 0:
+            invoice.action_switch_move_type()
+
         invoice.sudo().action_post()
         _logger.info('Confirmed invoice id=%s name=%s', invoice.id, invoice.display_name)
 
