@@ -62,6 +62,42 @@
                 <field name="description_sale">Einnahmen aus Direktvermarktung</field>
             </record>
 
+            <!-- Verkauf an die Gemeinschaft - Community sale revenue -->
+            <record id="product_community_sale" model="product.product">
+                <field name="name">Verkauf an die Gemeinschaft</field>
+                <field name="default_code">community_sale</field>
+                <field name="type">service</field>
+                <field name="categ_id" ref="product.product_category_all"/>
+                <field name="sale_ok">True</field>
+                <field name="purchase_ok">False</field>
+                <field name="list_price">0.0</field>
+                <field name="description_sale">Einnahmen aus dem Verkauf an die Energiegemeinschaft</field>
+            </record>
+
+            <!-- Einkauf aus der Gemeinschaft - Community tariff purchase savings -->
+            <record id="product_community_purchase" model="product.product">
+                <field name="name">Einkauf aus der Gemeinschaft</field>
+                <field name="default_code">community_purchase</field>
+                <field name="type">service</field>
+                <field name="categ_id" ref="product.product_category_all"/>
+                <field name="sale_ok">True</field>
+                <field name="purchase_ok">False</field>
+                <field name="list_price">0.0</field>
+                <field name="description_sale">Ersparnisse beim Einkauf aus der Energiegemeinschaft</field>
+            </record>
+
+            <!-- Direktvermarktung - Community tariff exchange sale revenue -->
+            <record id="product_community_exchange_sale" model="product.product">
+                <field name="name">Direktvermarktung</field>
+                <field name="default_code">community_exchange_sale</field>
+                <field name="type">service</field>
+                <field name="categ_id" ref="product.product_category_all"/>
+                <field name="sale_ok">True</field>
+                <field name="purchase_ok">False</field>
+                <field name="list_price">0.0</field>
+                <field name="description_sale">Einnahmen aus dem Verkauf an der Strombörse</field>
+            </record>
+
             <!-- Anlagen Bonus -->
             <record id="product_anlagen_bonus" model="product.product">
                 <field name="name">Anlagenbonus</field>
