@@ -221,6 +221,14 @@ class BillingAPI(Controller):
             _logger.exception('read_partner failed')
             return self._error(str(exc), 500)
 
+    @staticmethod
+    def _german_state_id(region):
+        if not region:
+            return False
+        germany = request.env['res.country'].sudo().search([('code', '=', 'DE')], limit=1)
+        return request.env['res.country.state'].sudo().search(
+            [('country_id', '=', germany.id), '|', ('name', '=', region), ('code', '=', region)], limit=1).id
+
     @route('/api/v1/internal/partner/create', type='http', auth='none', methods=['POST'], csrf=False)
     def create_partner(self):
         _, err = self._secured()
@@ -258,8 +266,7 @@ class BillingAPI(Controller):
 
             # Create the partner
             germany = request.env['res.country'].sudo().search([('code', '=', 'DE')], limit=1)
-            state_id = request.env['res.country.state'].sudo().search(
-                [('code', '=', state), ('country_id', '=', germany.id)], limit=1).id if state else None #FIXME: Make it fuzzy
+            state_id = self._german_state_id(state)
             partner_values = {
                 'name': f'{name} {surname}',
                 'street': street,
