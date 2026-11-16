@@ -58,9 +58,14 @@
             <!-- Custom quantity: abs(quantity) + kWh for fixed_price -->
             <xpath expr="//td[@name='td_quantity']" position="replace">
                 <td name="td_quantity" class="text-end custom_td">
+                    <!-- Formatted in the document language: 17,944 kWh (3 decimals, Wh precision) or 1,00 -->
                     <span class="text-nowrap">
-                        <t t-esc="abs(line.quantity)"/>
-                        <t t-if="line.product_id.default_code == 'fixed_price' or line.product_id.default_code == 'anlagen_bonus'">kWh</t>
+                        <t t-if="line.product_id.default_code == 'fixed_price' or line.product_id.default_code == 'anlagen_bonus'">
+                            <t t-out="abs(line.quantity)" t-options="{'widget': 'float', 'precision': 3}"/> kWh
+                        </t>
+                        <t t-else="">
+                            <t t-out="abs(line.quantity)" t-options="{'widget': 'float', 'precision': 2}"/>
+                        </t>
                     </span>
                 </td>
             </xpath>
@@ -69,10 +74,15 @@
             <xpath expr="//td[@name='td_price_unit']" position="replace">
                 <td name="td_price_unit"
                     t-attf-class="text-end custom_td {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
+                    <!-- Stored with 6 decimals (data/decimal_precision.xml) so amounts are exact; shown with 4 (€/kWh)
+                         or 2 (€), formatted in the document language (0,1597 €/kWh). -->
                     <span class="text-nowrap">
-                        <t t-esc="line.price_unit"/>
-                        <t t-if="line.product_id.default_code == 'fixed_price' or line.product_id.default_code == 'anlagen_bonus'">€/kWh</t>
-                        <t t-else="">€</t>
+                        <t t-if="line.product_id.default_code == 'fixed_price' or line.product_id.default_code == 'anlagen_bonus'">
+                            <span t-field="line.price_unit" t-options="{'widget': 'float', 'precision': 4}"/> €/kWh
+                        </t>
+                        <t t-else="">
+                            <span t-field="line.price_unit" t-options="{'widget': 'float', 'precision': 2}"/> €
+                        </t>
                     </span>
                 </td>
             </xpath>

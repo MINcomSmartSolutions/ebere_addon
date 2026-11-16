@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Energy prices are per kWh with more than cents, e.g. an Anlagenbonus of 0.19 EUR/kWh gross is
+        0.159664 EUR/kWh net. With Odoo's default of 2 digits the unit price became 0.16 (+0.21 %) and the
+        kWh quantity was cut to 2 decimals, so invoice totals were off by a cent or more.
+        These records belong to `product` and are noupdate, so a <record> here would be skipped on upgrade;
+        <function> runs on every install and upgrade of this module.
+    -->
+    <function model="decimal.precision" name="write"
+              eval="[[ref('product.decimal_price')], {'digits': 6}]"/>
+    <function model="decimal.precision" name="write"
+              eval="[[ref('product.decimal_product_uom')], {'digits': 3}]"/>
+</odoo>
