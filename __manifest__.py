@@ -4,7 +4,7 @@
     'author': 'MINcom Smart Solutions GmbH',
     'website': 'https://min2sol.com',
     'category': 'Base',
-    'version': '17.0.1.8',
+    'version': '17.0.1.9',
     'depends': [
         'account',
         'base',
@@ -15,6 +15,7 @@
         'product',
     ],
     'data': [
+        'data/decimal_precision.xml',
         'data/products.xml',
         'data/mail_template_password.xml',
         'views/report_templates.xml',

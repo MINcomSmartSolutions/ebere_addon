@@ -147,6 +147,8 @@ class BillingAPI(Controller):
             return self._ok(result)
         except Exception as exc:
             _logger.exception('create_invoice failed')
+            # The route returns normally, so Odoo would commit a half-created draft move.
+            request.env.cr.rollback()
             return self._error(str(exc), 500)
 
     @route('/api/v1/internal/billing/create_attachment', type='http', auth='none', methods=['POST'], csrf=False)
@@ -476,8 +478,9 @@ class BillingAPI(Controller):
 
     @staticmethod
     def _resolve_tax(env, amount, price_include, cache):
-        """Find (or create) an ``account.tax`` by amount and price_include flag.
+        """Find an existing sale ``account.tax`` by amount and price_include flag.
 
+        Raises ``ValueError`` when none exists; taxes are never created here.
         Returns the tax recordset.  Results are cached by (amount, price_include)
         for the duration of the request.
         """
@@ -493,15 +496,8 @@ class BillingAPI(Controller):
         ], limit=1)
 
         if not tax:
-            incl_label = 'inkl.' if price_include else 'exkl.'
-            tax = Tax.create({
-                'name': f'{amount}% USt ({incl_label})',
-                'amount': amount,
-                'amount_type': 'percent',
-                'type_tax_use': 'sale',
-                'price_include': price_include,
-            })
-            _logger.info('Created tax id=%s name=%s', tax.id, tax.name)
+            raise ValueError(
+                f'Kein {amount:g} %-Steuersatz ({"inkl." if price_include else "exkl."}) in Odoo eingerichtet')
 
         cache[key] = tax
         return tax
@@ -520,7 +516,7 @@ class BillingAPI(Controller):
         * ``"tax_amount": 19, "tax_included": true`` → override the default tax.
           ``tax_included: true`` means ``price_unit`` is brutto;
           ``tax_included: false`` (or omitted) means netto.
-          If no matching tax exists it will be created automatically.
+          If no matching tax exists the request fails; taxes are never created.
         """
         Product = env['product.product'].sudo()
         product_cache = {}

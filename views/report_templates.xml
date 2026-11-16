@@ -59,8 +59,12 @@
             <xpath expr="//td[@name='td_quantity']" position="replace">
                 <td name="td_quantity" class="text-end custom_td">
                     <span class="text-nowrap">
-                        <t t-esc="abs(line.quantity)"/>
-                        <t t-if="line.product_id.default_code == 'fixed_price' or line.product_id.default_code == 'anlagen_bonus'">kWh</t>
+                        <t t-if="line.product_id.default_code == 'fixed_price' or line.product_id.default_code == 'anlagen_bonus'">
+                            <t t-out="abs(line.quantity)" t-options="{'widget': 'float', 'precision': 3}"/> kWh
+                        </t>
+                        <t t-else="">
+                            <t t-out="abs(line.quantity)" t-options="{'widget': 'float', 'precision': 2}"/>
+                        </t>
                     </span>
                 </td>
             </xpath>
@@ -70,9 +74,14 @@
                 <td name="td_price_unit"
                     t-attf-class="text-end custom_td {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
                     <span class="text-nowrap">
-                        <t t-esc="line.price_unit"/>
-                        <t t-if="line.product_id.default_code == 'fixed_price' or line.product_id.default_code == 'anlagen_bonus'">€/kWh</t>
-                        <t t-else="">€</t>
+                        <t t-if="line.product_id.default_code == 'fixed_price' or line.product_id.default_code == 'anlagen_bonus'">
+                            <!-- precision None: all stored decimals minus trailing zeros (0,159664), so quantity × price
+                                 matches the line total; rounding to 4 showed 1.000 kWh × 0,1597 next to 159,66 €. -->
+                            <span t-field="line.price_unit" t-options="{'widget': 'float', 'precision': None}"/> €/kWh
+                        </t>
+                        <t t-else="">
+                            <span t-field="line.price_unit" t-options="{'widget': 'float', 'precision': 2}"/> €
+                        </t>
                     </span>
                 </td>
             </xpath>
