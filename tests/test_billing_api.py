@@ -121,6 +121,53 @@ class TestBillingAPI(HttpCase):
             'price_subtotal': 2.87, 'price_total': 3.42,
         }])
 
+    def _coarsen(self, precision_xmlid):
+        precision = self.env.ref(precision_xmlid)
+        # Restores through the ORM, which clears the cached digits; the test's rollback alone would not.
+        self.addCleanup(precision.write, {'digits': precision.digits})
+        precision.digits = 2
+
+    def test_coarser_price_precision_is_refused_before_posting(self):
+        self._coarsen('product.decimal_price')
+        status, body = self._invoice(4, [{'product_code': 'anlagen_bonus', 'quantity': 17.944, 'price_unit': 0.159664, 'tax_amount': 19}])
+        self.assertEqual(status, 500)
+        self.assertIn('Position 1 (anlagen_bonus) anders buchen: Preis 0.16 statt 0.159664', body['error'])
+        self.assertEqual(self._moves(), 0)
+
+    def test_coarser_quantity_precision_is_refused_before_posting(self):
+        self._coarsen('product.decimal_product_uom')
+        status, body = self._invoice(4, [{'product_code': 'anlagen_bonus', 'quantity': 17.944, 'price_unit': 0.159664, 'tax_amount': 19}])
+        self.assertEqual(status, 500)
+        self.assertIn('Menge 17.94 statt 17.944', body['error'])
+        self.assertEqual(self._moves(), 0)
+
+    def test_replaced_tax_is_refused_before_posting(self):
+        create = type(self.env['account.move']).create
+
+        def replace_tax(moves, vals):
+            invoice = create(moves, vals)
+            lines = invoice.invoice_line_ids
+            lines.tax_ids = lines.tax_ids.copy({'amount': 7})
+            return invoice
+
+        with patch.object(type(self.env['account.move']), 'create', autospec=True, side_effect=replace_tax):
+            status, body = self._invoice(4, [{'product_code': 'anlagen_bonus', 'quantity': 1, 'price_unit': 1, 'tax_amount': 19}])
+        self.assertEqual(status, 500)
+        self.assertIn('Steuer 7 % exkl. statt 19 % exkl.', body['error'])
+        self.assertEqual(self._moves(), 0)
+
+    def test_community_credits_pass_the_check_as_a_credit_note(self):
+        # Shaped like buildCommunityTariffInvoiceLines: unrounded negative credits, a zero self-use line kept.
+        credit = {'quantity': 1, 'tax_amount': 19, 'tax_included': False}
+        status, body = self._invoice(5, [
+            {'type': 'section', 'name': 'Korrekturen durch Energiegemeinschaft'},
+            {'product_code': 'community_purchase', 'price_unit': -1.2345675, **credit},
+            {'product_code': 'savings_plant_cons', 'price_unit': 0, **credit},
+            {'product_code': 'community_sale', 'price_unit': -0.4999999, **credit},
+        ])
+        self.assertEqual((status, body['state']), (200, 'posted'))
+        self.assertEqual(self.env['account.move'].browse(body['bill_id']).move_type, 'out_refund')
+
     def test_concurrency_error_retries_the_request(self):
         error = _pg_error(self.env.cr, 'serialization_failure')
         create_invoice = BillingAPI._do_create_invoice

@@ -7,12 +7,17 @@ import psycopg2
 from odoo import SUPERUSER_ID
 from odoo.http import request, Controller, route
 from odoo.service.model import PG_CONCURRENCY_ERRORS_TO_RETRY
+from odoo.tools import float_compare, float_round
 from ..services.company_service import get_or_create_company
 
 _logger = logging.getLogger(__name__)
 
 # Docker internal / loopback network prefixes. Fine for quick filtering / non-critical use, but not a real IP validation.
 _INTERNAL_PREFIXES = ('172.', '10.', '192.168.', '127.', '::1')
+
+# The digits data/decimal_precision.xml sets; the backend's documents assume Odoo rounds no further.
+_QUANTITY_DIGITS = 3
+_PRICE_DIGITS = 6
 
 
 class BillingAPI(Controller):
@@ -453,6 +458,8 @@ class BillingAPI(Controller):
 
         invoice = env['account.move'].sudo().create(invoice_vals)
         _logger.info('Created draft invoice id=%s partner=%s', invoice.id, partner_id)
+        # Before the switch below, which negates tarif 5's quantities.
+        self._check_booked_lines(invoice, payload['invoice_lines'])
 
         # Tarif 5 is a delta invoice of credits that usually nets negative, which Odoo
         # refuses to post; the native switch turns it into a credit note.
@@ -584,3 +591,34 @@ class BillingAPI(Controller):
             commands.append((0, 0, vals))
 
         return commands
+
+    @staticmethod
+    def _check_booked_lines(invoice, items):
+        """Refuse the draft when Odoo would book a product line other than the backend sent it.
+
+        Quantity and price may only be rounded to the backend's digits: a coarser precision setting or another tax
+        would book amounts that the backend's documents don't show.
+        """
+        def tax_label(amount, price_include):
+            return f'{amount:g} % {"inkl." if price_include else "exkl."}'
+
+        sent = [item for item in items if item.get('type') != 'section']
+        booked = invoice.invoice_line_ids.filtered(lambda line: line.display_type == 'product')
+        for number, (item, line) in enumerate(zip(sent, booked, strict=True), 1):
+            differences = [
+                f'{label} {value} statt {item[key]}'
+                for label, key, value, digits in (
+                    ('Menge', 'quantity', line.quantity, _QUANTITY_DIGITS),
+                    ('Preis', 'price_unit', line.price_unit, _PRICE_DIGITS),
+                )
+                if key in item
+                and float_compare(value, float_round(float(item[key]), precision_digits=digits), precision_digits=digits)
+            ]
+            if 'tax_amount' in item:
+                sent_tax = tax_label(float(item['tax_amount']), bool(item.get('tax_included', False)))
+                booked_tax = ', '.join(tax_label(tax.amount, tax.price_include) for tax in line.tax_ids) or 'keine'
+                if booked_tax != sent_tax:
+                    differences.append(f'Steuer {booked_tax} statt {sent_tax}')
+            if differences:
+                raise ValueError(
+                    f'Odoo würde Position {number} ({item["product_code"]}) anders buchen: {", ".join(differences)}')
