@@ -4,7 +4,7 @@
     'author': 'MINcom Smart Solutions GmbH',
     'website': 'https://min2sol.com',
     'category': 'Base',
-    'version': '17.0.1.9',
+    'version': '17.0.1.10',
     'depends': [
         'account',
         'base',

@@ -467,6 +467,15 @@ class BillingAPI(Controller):
             'display_name': invoice.display_name,
             'amount_total': invoice.amount_total,
             'state': invoice.state,
+            # As booked: quantity and price at Odoo's precisions, the line net rounded to cents and VAT on that net,
+            # so the backend's own documents can show the credit note's figures instead of recomputing them.
+            'lines': [{
+                'product_code': line.product_id.default_code,
+                'quantity': line.quantity,
+                'price_unit': line.price_unit,
+                'price_subtotal': line.price_subtotal,
+                'price_total': line.price_total,
+            } for line in invoice.invoice_line_ids.filtered(lambda line: line.display_type == 'product')],
         }
 
     # Partner password / app access

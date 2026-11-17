@@ -109,6 +109,18 @@ class TestBillingAPI(HttpCase):
         self.assertEqual((status, body['state']), (200, 'posted'))
         self.assertEqual(body['amount_total'], 190.0)
 
+    def test_credit_note_returns_its_lines_as_booked(self):
+        # Test user 2, 05.-11.11.2026, sent unrounded like the backend: the net 2.865 rounds up to 2.87, VAT on that.
+        status, body = self._invoice(4, [
+            {'product_code': 'anlagen_bonus', 'quantity': 17.94409, 'price_unit': 0.19 / 1.19, 'tax_amount': 19},
+            {'type': 'section', 'name': 'Abschnitt'},
+        ])
+        self.assertEqual(status, 200)
+        self.assertEqual(body['lines'], [{
+            'product_code': 'anlagen_bonus', 'quantity': 17.944, 'price_unit': 0.159664,
+            'price_subtotal': 2.87, 'price_total': 3.42,
+        }])
+
     def test_concurrency_error_retries_the_request(self):
         error = _pg_error(self.env.cr, 'serialization_failure')
         create_invoice = BillingAPI._do_create_invoice
