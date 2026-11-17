@@ -2,8 +2,11 @@ import base64
 import json
 import logging
 
+import psycopg2
+
 from odoo import SUPERUSER_ID
 from odoo.http import request, Controller, route
+from odoo.service.model import PG_CONCURRENCY_ERRORS_TO_RETRY
 from ..services.company_service import get_or_create_company
 
 _logger = logging.getLogger(__name__)
@@ -20,11 +23,14 @@ class BillingAPI(Controller):
     Basic-Auth header and authenticates the supplied credentials against
     the Odoo user database.  An additional check restricts access to
     Docker-internal / loopback IP ranges.
+
+    Write routes run their writes in ``cr.savepoint()``: they catch errors and
+    return normally, so Odoo would otherwise commit whatever was written before
+    the error.  The savepoint also flushes inside the ``try``, so constraint
+    violations still get a JSON error.
     """
 
-    # ------------------------------------------------------------------
     # Security helpers
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _is_internal_network():
@@ -73,9 +79,7 @@ class BillingAPI(Controller):
             return None, self._error('Unauthorized', 401)
         return True, None
 
-    # ------------------------------------------------------------------
     # Response helpers
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _error(message, status=400):
@@ -83,6 +87,20 @@ class BillingAPI(Controller):
             {'success': False, 'error': message},
             status=status,
         )
+
+    @classmethod
+    def _failure(cls, exc, route_name):
+        """500 JSON for an error caught by a write route; call it inside the ``except`` block.
+
+        Concurrency errors are re-raised so that Odoo's ``retrying`` reruns the request.  A
+        database error answers with its primary message only, without the failing row.
+        """
+        if isinstance(exc, psycopg2.OperationalError) and exc.pgcode in PG_CONCURRENCY_ERRORS_TO_RETRY:
+            raise exc
+        _logger.exception('%s failed', route_name)
+        if isinstance(exc, psycopg2.Error) and exc.diag.message_primary:
+            return cls._error(exc.diag.message_primary, 500)
+        return cls._error(str(exc), 500)
 
     @staticmethod
     def _ok(data, status=200):
@@ -95,9 +113,7 @@ class BillingAPI(Controller):
     def _parse_body():
         return json.loads(request.httprequest.data)
 
-    # ------------------------------------------------------------------
     # Routes
-    # ------------------------------------------------------------------
 
     @route('/api/v1/billing/health', type='http', auth='public', methods=['GET'], csrf=False)
     def health_check(self):
@@ -143,13 +159,11 @@ class BillingAPI(Controller):
 
         try:
             env = request.env(user=SUPERUSER_ID)
-            result = self._do_create_invoice(env, payload)
+            with env.cr.savepoint():
+                result = self._do_create_invoice(env, payload)
             return self._ok(result)
         except Exception as exc:
-            _logger.exception('create_invoice failed')
-            # The route returns normally, so Odoo would commit a half-created draft move.
-            request.env.cr.rollback()
-            return self._error(str(exc), 500)
+            return self._failure(exc, 'create_invoice')
 
     @route('/api/v1/internal/billing/create_attachment', type='http', auth='none', methods=['POST'], csrf=False)
     def create_attachment(self):
@@ -179,17 +193,17 @@ class BillingAPI(Controller):
 
         try:
             env = request.env(user=SUPERUSER_ID)
-            attachment = env['ir.attachment'].sudo().create({
-                'name': payload['filename'],
-                'res_model': 'account.move',
-                'res_id': int(payload['invoice_id']),
-                'type': 'binary',
-                'datas': payload['data'],
-            })
+            with env.cr.savepoint():
+                attachment = env['ir.attachment'].sudo().create({
+                    'name': payload['filename'],
+                    'res_model': 'account.move',
+                    'res_id': int(payload['invoice_id']),
+                    'type': 'binary',
+                    'datas': payload['data'],
+                })
             return self._ok({'attachment_id': attachment.id})
         except Exception as exc:
-            _logger.exception('create_attachment failed')
-            return self._error(str(exc), 500)
+            return self._failure(exc, 'create_attachment')
 
     @route('/api/v1/internal/partner/read', type='http', auth='none', methods=['POST'], csrf=False)
     def read_partner(self):
@@ -280,22 +294,23 @@ class BillingAPI(Controller):
                 'lang': 'de_DE',
                 'tz': 'Europe/Berlin',
             }
-            partner = request.env['res.partner'].sudo().create(
-                {k: v for k, v in partner_values.items() if v}
-            )
+            with request.env.cr.savepoint():
+                partner = request.env['res.partner'].sudo().create(
+                    {k: v for k, v in partner_values.items() if v}
+                )
 
-            return request.make_json_response({
-                'success': True,
-                'partner_id': partner.id,
-            }, status=201)
+            return self._ok({'partner_id': partner.id}, status=201)
 
         except Exception as exc:
-            _logger.error(f"User creation error: {str(exc)}", exc_info=True, stack_info=True)
-            return request.make_json_response({'error': str(exc)}, status=500)
+            return self._failure(exc, 'create_partner')
 
     @route('/api/v1/internal/partner/update', type='http', auth='none', methods=['POST'], csrf=False)
     def update_partner(self):
-        """Overwrite a partner's name and address with the backend's values; absent keys stay unchanged."""
+        """Overwrite a partner's name and address with the backend's values; absent keys stay unchanged.
+
+        ``name`` and ``surname`` form the single Odoo name, so sending either one rewrites it from both:
+        a missing one counts as empty.
+        """
         _, err = self._secured()
         if err:
             return err
@@ -305,28 +320,37 @@ class BillingAPI(Controller):
         except Exception as exc:
             return self._error(f'Invalid JSON: {exc}')
 
+        partner_id = payload.get('partner_id')
+        if not partner_id:
+            return self._error('Missing field: partner_id')
         try:
-            partner_id = payload.get('partner_id')
-            if not partner_id:
-                return self._error('Missing field: partner_id')
-            partner = request.env['res.partner'].sudo().browse(int(partner_id)).exists()
+            partner_id = int(partner_id)
+        except (TypeError, ValueError):
+            return self._error('Invalid field: partner_id')
+
+        try:
+            partner = request.env['res.partner'].sudo().browse(partner_id).exists()
             if not partner:
                 return self._error(f'Partner {partner_id} not found', 404)
 
             values = {}
             if 'name' in payload or 'surname' in payload:
                 values['name'] = f"{payload.get('name') or ''} {payload.get('surname') or ''}".strip()
+                if not values['name']:
+                    return self._error('Invalid field: name and surname are empty')
             for key in ('street', 'city', 'zip'):
                 if key in payload:
                     values[key] = payload[key] or False
             if 'region' in payload:
                 values['state_id'] = self._german_state_id(payload['region'])
-            partner.write(values)
+                if payload['region'] and not values['state_id']:
+                    return self._error(f"Invalid field: region {payload['region']!r} is no German state")
+            with request.env.cr.savepoint():
+                partner.write(values)
             return self._ok({'partner_id': partner.id})
 
         except Exception as exc:
-            _logger.error(f"Partner update error: {str(exc)}", exc_info=True, stack_info=True)
-            return request.make_json_response({'success': False, 'error': str(exc)}, status=500)
+            return self._failure(exc, 'update_partner')
 
     @route('/api/v1/internal/partner/send_password', type='http', auth='none', methods=['POST'], csrf=False)
     def send_partner_password(self):
@@ -385,9 +409,7 @@ class BillingAPI(Controller):
             _logger.exception('send_partner_password failed')
             return self._error(str(exc), 500)
 
-    # ------------------------------------------------------------------
     # Core invoice logic
-    # ------------------------------------------------------------------
 
     def _do_create_invoice(self, env, payload):
         """Create an ``account.move``, confirm it, return key fields."""
@@ -399,7 +421,8 @@ class BillingAPI(Controller):
         if not partner:
             raise ValueError(f'Partner with id {partner_id} not found')
 
-        line_cmds = self._build_line_commands(env, payload['invoice_lines'])
+        company = get_or_create_company(env) or env.company
+        line_cmds = self._build_line_commands(env, payload['invoice_lines'], company)
 
         move_type = 'out_refund' if tariff_version == 4 else 'out_invoice'
 
@@ -416,6 +439,7 @@ class BillingAPI(Controller):
             'invoice_payment_term_id': 1,
             'invoice_user_id': 2,
             'tax_country_id': 57,
+            'company_id': company.id,
             'invoice_line_ids': line_cmds,
         }
 
@@ -426,10 +450,6 @@ class BillingAPI(Controller):
             invoice_vals['contract_number'] = str(payload['contract_number'])
         if payload.get('meter_point'):
             invoice_vals['meter_point'] = str(payload['meter_point'])
-
-        company = get_or_create_company(env)
-        if company:
-            invoice_vals['company_id'] = company.id
 
         invoice = env['account.move'].sudo().create(invoice_vals)
         _logger.info('Created draft invoice id=%s partner=%s', invoice.id, partner_id)
@@ -449,9 +469,7 @@ class BillingAPI(Controller):
             'state': invoice.state,
         }
 
-    # ------------------------------------------------------------------
     # Partner password / app access
-    # ------------------------------------------------------------------
 
     def _do_send_partner_password(self, env, partner_id, password):
         """Email the frontend-app credentials to the partner.
@@ -477,8 +495,8 @@ class BillingAPI(Controller):
         }
 
     @staticmethod
-    def _resolve_tax(env, amount, price_include, cache):
-        """Find an existing sale ``account.tax`` by amount and price_include flag.
+    def _resolve_tax(env, amount, price_include, company, cache):
+        """Find an existing sale ``account.tax`` of *company* by amount and price_include flag.
 
         Raises ``ValueError`` when none exists; taxes are never created here.
         Returns the tax recordset.  Results are cached by (amount, price_include)
@@ -490,6 +508,7 @@ class BillingAPI(Controller):
 
         Tax = env['account.tax'].sudo()
         tax = Tax.search([
+            *Tax._check_company_domain(company),
             ('amount', '=', amount),
             ('price_include', '=', price_include),
             ('type_tax_use', '=', 'sale'),
@@ -503,7 +522,7 @@ class BillingAPI(Controller):
         return tax
 
     @staticmethod
-    def _build_line_commands(env, lines):
+    def _build_line_commands(env, lines, company):
         """Translate JSON line items into Odoo ``(0, 0, vals)`` commands.
 
         Each element is either:
@@ -550,7 +569,7 @@ class BillingAPI(Controller):
             # Override default tax when the backend specifies amount + included flag
             if 'tax_amount' in item:
                 price_include = bool(item.get('tax_included', False))
-                tax = BillingAPI._resolve_tax(env, item['tax_amount'], price_include, tax_cache)
+                tax = BillingAPI._resolve_tax(env, float(item['tax_amount']), price_include, company, tax_cache)
                 vals['tax_ids'] = [(6, 0, [tax.id])]
 
             commands.append((0, 0, vals))

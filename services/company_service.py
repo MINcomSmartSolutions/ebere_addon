@@ -42,15 +42,8 @@ def _fetch_logo(url):
         return None
 
 
-def _read_company_vals():
-    """Build a dict of res.company field values from environment variables.
-
-    Returns ``None`` when ``COMPANY_NAME`` is not set.
-    """
-    name = os.environ.get('COMPANY_NAME', '').strip()
-    if not name:
-        return None
-
+def _read_company_vals(name):
+    """Build a dict of res.company field values from environment variables."""
     vals = {'name': name}
 
     for env_key, field in _ENV_FIELD_MAP.items():
@@ -132,20 +125,22 @@ def get_or_create_company(env):
 
     Returns ``None`` when ``COMPANY_NAME`` is not configured.
     """
-    vals = _read_company_vals()
-    if not vals:
+    name = os.environ.get('COMPANY_NAME', '').strip()
+    if not name:
         _logger.warning('COMPANY_NAME env var not set – skipping company setup')
         return None
 
-    static_vals = _resolve_static_vals(env)
-    lang_code = _ensure_lang_de(env)
-
     Company = env['res.company'].sudo()
-    company = Company.search([('name', '=', vals['name'])], limit=1)
+    company = Company.search([('name', '=', name)], limit=1)
 
     if company:
         _logger.debug('Using existing company %r (id=%s)', company.name, company.id)
         return company
+
+    # Built only now: _read_company_vals downloads the logo, and this runs on every invoice.
+    vals = _read_company_vals(name)
+    static_vals = _resolve_static_vals(env)
+    lang_code = _ensure_lang_de(env)
 
     # Fall back to the Odoo default company so that all journals/accounts are
     # already in place. We simply rename and reconfigure it

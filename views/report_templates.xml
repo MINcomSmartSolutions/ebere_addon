@@ -4,10 +4,8 @@
      Customization is for language DE. May cause irregularities with EN. -->
 <odoo>
     <data>
-        <!-- ============================================================ -->
-        <!-- Invoice document: Inherit account.report_invoice_document    -->
-        <!-- Adds billing period, German headers, custom line rendering   -->
-        <!-- ============================================================ -->
+        <!-- Inherits account.report_invoice_document: billing period, German headers, custom line rendering -->
+
         <template id="report_invoice_document_custom"
                   inherit_id="account.report_invoice_document">
 
